@@ -26,6 +26,9 @@ model User {
   lastLogin DateTime?
   privileges String[] @default([])//  "users:add",  "users:edit",  "users.read"
   profileImage String @default("/images/default-profile.png")
+  orders Order[]
+  paymentsMade Payment[] @relation("PaymentPaidBy")
+  paymentsReviewed Payment[] @relation("PaymentReviewedBy")
 } //gender, emailVerified, phoneVerified
 
 enum ProductStatus {
@@ -48,6 +51,7 @@ model Product{
   brand String?
   model String?
   media Media[]
+  orderItems OrderItem[]
 }
 
 enum MediaType {
@@ -59,6 +63,131 @@ model Media{
   id String @id @default(uuid())
   url String 
   type MediaType
+  productId String?
+  product Product? @relation(fields : [productId], references: [id])
+  serviceId String?
+  service Service? @relation(fields : [serviceId], references: [id])
+  variantId String?
+  variant Variant? @relation(fields : [variantId], references: [id])
+
+}
+
+enum OrderDeliveryStatus {
+  PENDING
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+model Order{
+  id Int @id @default(autoincrement())
+  date DateTime @default(now())
+  deliveredStatus OrderDeliveryStatus @default(PENDING)
+  placedByUserId String
+  placedBy User @relation(fields: [placedByUserId], references: [id])
+  payment Payment?
+  totalAmount Decimal//Derived Attribute
+
+  orderItems OrderItem[]
+  notes String?
+
+  orderTotalAdjustments OrderTotalAdjustment[]
+}
+
+model OrderItem{
+  id String @id @default(uuid())
+  orderId Int
   productId String
-  product Product @relation(fields : [productId], references: [id])
+  name String
+  price Decimal
+  compareAt Decimal?
+  quantity Int
+  
+  order Order @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model OrderTotalAdjustment{
+
+  id String @id @default(uuid())
+  orderId Int
+  description String
+  amount Decimal
+
+  order Order @relation(fields: [orderId], references: [id])
+}
+
+
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentMethod{
+  CARD
+  BANK_TRANSFER
+  CASH_ON_DELIVERY
+  CASH
+}
+
+model Payment{
+
+  id String @id @default(uuid())
+  number Int @unique @default(autoincrement())
+  amount Decimal
+  orderId Int? @unique
+  reference String? @unique
+  
+  status PaymentStatus @default(PENDING)
+  paidByUserId String?
+  reviewedByUserId String?
+
+  method PaymentMethod @default(CARD)
+  fee Decimal @default(0.00)
+  createdAt DateTime @default(now())
+  receivedAt DateTime?
+  
+  order Order? @relation(fields: [orderId], references: [id])
+  paidBy User? @relation("PaymentPaidBy", fields: [paidByUserId], references: [id])
+  reviewedBy User? @relation("PaymentReviewedBy", fields: [reviewedByUserId], references: [id])
+}
+
+enum ServiceCategory{
+  HAIR
+  NAILS
+  SKIN
+  MASSAGE
+  MALE
+  FEMALE
+  WEDDING
+}
+
+enum ServiceStatus{
+  ACTIVE
+  INACTIVE
+  DISCONTINUED
+}
+model Service{
+  id String @id @default(uuid())
+  name String
+  description String
+  price Decimal
+  estimatedTimeInMinutes Int
+  categories ServiceCategory[]
+  status ServiceStatus @default(ACTIVE)
+  variants Variant[]
+  priorConsultationRequired Boolean @default(false)
+  media Media[]
+}
+
+model Variant{
+  id String @id @default(uuid())
+  name String
+  priorConsultationRequired Boolean @default(false)
+  media Media[]
+  price Decimal
+  serviceId String
+  service Service @relation(fields: [serviceId], references: [id])
 }
